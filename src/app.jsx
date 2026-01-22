@@ -202,7 +202,7 @@ function App() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-white/5">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="text-teal-400">
               <SpineIcon />
@@ -213,10 +213,10 @@ function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white/5 rounded-full p-1">
+          <div className="flex items-center gap-2 bg-white/5 rounded-full p-1 w-full sm:w-auto overflow-x-auto">
             <button
               onClick={() => setActiveTab("posture")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                 activeTab === "posture" ? "bg-teal-500/20 text-teal-400" : "text-gray-400 hover:text-white"
               }`}
             >
@@ -225,7 +225,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab("soap")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                 activeTab === "soap" ? "bg-orange-500/20 text-orange-400" : "text-gray-400 hover:text-white"
               }`}
             >
@@ -234,7 +234,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab("chat")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                 activeTab === "chat" ? "bg-blue-500/20 text-blue-400" : "text-gray-400 hover:text-white"
               }`}
             >
@@ -243,7 +243,7 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab("education")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                 activeTab === "education" ? "bg-purple-500/20 text-purple-400" : "text-gray-400 hover:text-white"
               }`}
             >
@@ -254,7 +254,7 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {activeTab === "posture" ? (
           <PostureAnalysis />
         ) : activeTab === "soap" ? (
@@ -351,7 +351,7 @@ function PostureAnalysis() {
 
           <div className="mb-6">
             <label className="text-sm text-gray-400 mb-2 block">Select View</label>
-            <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {views.map((item) => (
                 <button
                   key={item.id}
@@ -455,7 +455,7 @@ function PostureAnalysis() {
 
         {results && (
           <div className="prose prose-invert max-w-none fade-in">
-            <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed overflow-y-auto max-h-[600px] pr-2">
+            <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed overflow-y-auto max-h-[420px] sm:max-h-[600px] pr-2">
               <ResultsRenderer content={results} />
             </div>
 
@@ -634,7 +634,7 @@ function SOAPNotes() {
               value={manualNotes}
               onChange={(event) => setManualNotes(event.target.value)}
               placeholder="Patient presented with lower back pain, radiating to left leg. Onset 2 weeks ago after lifting. Palpation revealed L4-L5 fixation..."
-              className="w-full h-40 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-orange-400/50 resize-none text-sm"
+              className="w-full h-32 sm:h-40 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-orange-400/50 resize-none text-sm"
             />
           </div>
 
@@ -716,7 +716,7 @@ function SOAPNotes() {
 
         {soapNote && (
           <div className="fade-in">
-            <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed overflow-y-auto max-h-[600px] pr-2">
+            <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed overflow-y-auto max-h-[420px] sm:max-h-[600px] pr-2">
               <ResultsRenderer content={soapNote} />
             </div>
 
@@ -903,7 +903,7 @@ Use professional tone and avoid definitive diagnosis.`;
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             placeholder="Patient reports mid-back tension after desk work. Pain 4/10, worse by end of day. No numbness or tingling..."
-            className="w-full h-40 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-400/50 resize-none text-sm"
+            className="w-full h-32 sm:h-40 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-400/50 resize-none text-sm"
           />
 
           <div className="mt-4 grid gap-3">
@@ -983,7 +983,7 @@ Use professional tone and avoid definitive diagnosis.`;
 
         {result && (
           <div className="space-y-6">
-            <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed overflow-y-auto max-h-[420px] pr-2">
+            <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed overflow-y-auto max-h-[320px] sm:max-h-[420px] pr-2">
               <ResultsRenderer content={result} />
             </div>
 
@@ -1069,7 +1069,7 @@ If the user asks for patient education, use plain language.`;
 
   return (
     <div className="grid lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-2 glass-card rounded-2xl p-6 glow-teal flex flex-col min-h-[600px]">
+      <div className="lg:col-span-2 glass-card rounded-2xl p-6 glow-teal flex flex-col min-h-[420px] sm:min-h-[600px]">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-serif text-white">Chiro Chat</h2>
