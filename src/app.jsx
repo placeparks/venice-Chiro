@@ -81,6 +81,8 @@ const models = {
   soap: "venice-uncensored",
   transcription: "nvidia/parakeet-tdt-0.6b-v3",
   chat: "mistral-31-24b",
+  education: "zai-org-glm-4.6",
+  fast: "qwen3-4b",
 };
 
 // Icons
@@ -128,6 +130,13 @@ const AlertIcon = () => (
 const ChatIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth="1.5">
     <path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+  </svg>
+);
+
+const BookIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth="1.5">
+    <path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2V5z" />
+    <path d="M6 3v16a2 2 0 0 0-2 2" />
   </svg>
 );
 
@@ -232,12 +241,29 @@ function App() {
               <ChatIcon />
               Chiro Chat
             </button>
+            <button
+              onClick={() => setActiveTab("education")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                activeTab === "education" ? "bg-purple-500/20 text-purple-400" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <BookIcon />
+              Care Pack
+            </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-8">
-        {activeTab === "posture" ? <PostureAnalysis /> : activeTab === "soap" ? <SOAPNotes /> : <ChiroChat />}
+        {activeTab === "posture" ? (
+          <PostureAnalysis />
+        ) : activeTab === "soap" ? (
+          <SOAPNotes />
+        ) : activeTab === "education" ? (
+          <CarePack />
+        ) : (
+          <ChiroChat />
+        )}
       </main>
     </div>
   );
@@ -768,6 +794,203 @@ function ResultsRenderer({ content }) {
           </p>
         );
       })}
+    </div>
+  );
+}
+
+function CarePack() {
+  const [notes, setNotes] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState("");
+  const [addendum, setAddendum] = useState("");
+  const [includePosture, setIncludePosture] = useState(true);
+  const [includeClinicianAddendum, setIncludeClinicianAddendum] = useState(false);
+  const [modelChoice, setModelChoice] = useState(models.education);
+
+  const patientPrompt = `You are a chiropractic patient-education assistant. Use plain language.
+Create a care pack with these sections:
+## Patient Summary
+## What This Means
+## Home Exercise Plan (HEP)
+## Red Flags (when to seek care)
+## Follow-up Questions
+Keep it concise, supportive, and non-alarming. Avoid definitive diagnosis.`;
+
+  const clinicianPrompt = `You are a chiropractic clinician assistant.
+Provide a concise addendum with:
+## Clinician Addendum
+### Differential Considerations
+### Focused Exam Suggestions
+### Plan Outline
+Use professional tone and avoid definitive diagnosis.`;
+
+  const generateCarePack = async () => {
+    if (!notes.trim()) return;
+
+    setGenerating(true);
+    setError(null);
+    setResult("");
+    setAddendum("");
+
+    try {
+      const postureFindings = includePosture ? window.lastPostureAnalysis : null;
+      let userContent = `Create a care pack from these notes:\n\n${notes}`;
+      if (postureFindings) {
+        userContent += `\n\nPosture Analysis Findings to incorporate:\n${postureFindings}`;
+      }
+
+      const response = await fetch(`${VENICE_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${getApiKey()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: modelChoice,
+          messages: [
+            { role: "system", content: patientPrompt },
+            { role: "user", content: userContent },
+          ],
+          max_tokens: 900,
+          temperature: 0.3,
+        }),
+      });
+
+      const data = await parseApiResponse(response);
+      setResult(data.choices[0].message.content);
+
+      if (includeClinicianAddendum) {
+        const addendumResponse = await fetch(`${VENICE_BASE_URL}/chat/completions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${getApiKey()}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: models.education,
+            messages: [
+              { role: "system", content: clinicianPrompt },
+              { role: "user", content: userContent },
+            ],
+            max_tokens: 700,
+            temperature: 0.2,
+          }),
+        });
+
+        const addendumData = await parseApiResponse(addendumResponse);
+        setAddendum(addendumData.choices[0].message.content);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="grid lg:grid-cols-2 gap-8">
+      <div className="space-y-6">
+        <div className="glass-card rounded-2xl p-6 glow-teal">
+          <h2 className="text-xl font-serif text-white mb-4">Care Pack Builder</h2>
+
+          <label className="text-sm text-gray-400 mb-2 block">Clinical Notes</label>
+          <textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Patient reports mid-back tension after desk work. Pain 4/10, worse by end of day. No numbness or tingling..."
+            className="w-full h-40 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-teal-400/50 resize-none text-sm"
+          />
+
+          <div className="mt-4 grid gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-400">Model</span>
+              <select
+                value={modelChoice}
+                onChange={(event) => setModelChoice(event.target.value)}
+                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+              >
+                <option value={models.fast}>Fast (qwen3-4b)</option>
+                <option value={models.education}>High quality (zai-org-glm-4.6)</option>
+              </select>
+            </div>
+
+            {window.lastPostureAnalysis && (
+              <label className="flex items-center gap-3 text-sm text-gray-400">
+                <input
+                  type="checkbox"
+                  checked={includePosture}
+                  onChange={() => setIncludePosture(!includePosture)}
+                />
+                Include posture analysis findings
+              </label>
+            )}
+
+            <label className="flex items-center gap-3 text-sm text-gray-400">
+              <input
+                type="checkbox"
+                checked={includeClinicianAddendum}
+                onChange={() => setIncludeClinicianAddendum(!includeClinicianAddendum)}
+              />
+              Include clinician addendum (extra call)
+            </label>
+          </div>
+
+          <button
+            onClick={generateCarePack}
+            disabled={!notes.trim() || generating}
+            className={`w-full mt-6 py-4 rounded-xl font-medium text-lg transition-all ${
+              !notes.trim() || generating
+                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:opacity-90"
+            }`}
+          >
+            {generating ? "Generating..." : "Generate Care Pack"}
+          </button>
+        </div>
+      </div>
+
+      <div className="glass-card rounded-2xl p-6 glow-coral">
+        <h2 className="text-xl font-serif text-white mb-4">Care Pack Output</h2>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
+        {!result && !generating && !error && (
+          <div className="h-96 flex items-center justify-center text-gray-500">
+            <div className="text-center">
+              <div className="text-6xl mb-4 opacity-20">🧠</div>
+              <p>Add notes to generate a patient-friendly care pack</p>
+            </div>
+          </div>
+        )}
+
+        {generating && (
+          <div className="h-96 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-400">Generating care pack...</p>
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-6">
+            <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed overflow-y-auto max-h-[420px] pr-2">
+              <ResultsRenderer content={result} />
+            </div>
+
+            {addendum && (
+              <div className="text-gray-300 whitespace-pre-wrap text-sm leading-relaxed border-t border-white/10 pt-4">
+                <ResultsRenderer content={addendum} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
