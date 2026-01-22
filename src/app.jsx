@@ -384,6 +384,10 @@ function PostureAnalysis() {
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
           </div>
 
+          <div className="mt-4 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-3 text-sm text-gray-300">
+            Use clear, unfiltered JPG/PNG images (recommended 600×800+). Full body in frame, plain background, good lighting. Avoid cropped, blurry, or heavily edited photos.
+          </div>
+
           <button
             onClick={handleAnalyze}
             disabled={!image || analyzing}
