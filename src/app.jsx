@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
-// Configuration - User needs to add their Venice API key
-const VENICE_API_KEY = "YOUR_VENICE_API_KEY_HERE";
+// Configuration - optional build-time Venice API key
+const VENICE_API_KEY = process.env.VENICE_API_KEY || "YOUR_VENICE_API_KEY_HERE";
 const VENICE_BASE_URL = "https://api.venice.ai/api/v1";
 
 const POSTURE_SYSTEM_PROMPT = `You are an expert chiropractic posture analysis AI assistant. Analyze the patient photo and provide detailed, actionable postural assessment.

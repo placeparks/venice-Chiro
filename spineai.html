@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
     <style>
         :root {
             --bone: #F5F0EB;
@@ -18,22 +18,33 @@
         }
         
         * {
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
         }
         
         h1, h2, h3, .font-serif {
-            font-family: 'Instrument Serif', serif;
+            font-family: 'Merriweather', serif;
         }
         
         body {
-            background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
+            background: linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 50%, #F8FAFC 100%);
+            color: #0F172A;
             min-height: 100vh;
         }
+
+        /* Light theme overrides for Tailwind utility colors */
+        .text-white { color: #0F172A !important; }
+        .text-gray-300 { color: #334155 !important; }
+        .text-gray-400 { color: #475569 !important; }
+        .text-gray-500 { color: #64748B !important; }
+        .bg-white\/5 { background-color: rgba(15, 23, 42, 0.03) !important; }
+        .bg-white\/10 { background-color: rgba(15, 23, 42, 0.06) !important; }
+        .border-white\/5 { border-color: rgba(15, 23, 42, 0.06) !important; }
+        .border-white\/10 { border-color: rgba(15, 23, 42, 0.08) !important; }
         
         .glass-card {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(15, 23, 42, 0.08);
         }
         
         .glow-teal {
@@ -65,7 +76,7 @@
         }
         
         .spine-pattern {
-            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 Q35 15 30 25 Q25 35 30 45 Q35 55 30 55' stroke='rgba(45,212,191,0.05)' fill='none' stroke-width='2'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 Q35 15 30 25 Q25 35 30 45 Q35 55 30 55' stroke='rgba(15,23,42,0.06)' fill='none' stroke-width='2'/%3E%3C/svg%3E");
         }
         
         .typing-indicator span {
@@ -98,7 +109,7 @@
         }
     </style>
 </head>
-<body class="text-white spine-pattern">
+<body class="text-slate-900 spine-pattern">
     <div id="root"></div>
     
     <script defer src="app.js"></script>

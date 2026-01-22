@@ -3,14 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node -e \"require('fs').mkdirSync('dist',{recursive:true});require('fs').copyFileSync('spineai.html','dist/index.html');\" && esbuild src/app.jsx --bundle --minify --sourcemap --format=iife --target=es2018 --define:process.env.NODE_ENV=\\\"production\\\" --outfile=dist/app.js",
-    "dev": "node -e \"require('fs').mkdirSync('dist',{recursive:true});require('fs').copyFileSync('spineai.html','dist/index.html');\" && esbuild src/app.jsx --bundle --sourcemap --format=iife --target=es2018 --define:process.env.NODE_ENV=\\\"development\\\" --outfile=dist/app.js --watch"
+    "build": "node build.mjs",
+    "dev": "node build.mjs --watch"
   },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "dotenv": "^16.4.5",
     "esbuild": "^0.20.2"
   }
 }
