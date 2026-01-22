@@ -852,6 +852,9 @@ Use professional tone and avoid definitive diagnosis.`;
         },
         body: JSON.stringify({
           model: modelChoice,
+          venice_parameters: {
+            disable_thinking: true,
+          },
           messages: [
             { role: "system", content: patientPrompt },
             { role: "user", content: userContent },
@@ -873,6 +876,9 @@ Use professional tone and avoid definitive diagnosis.`;
           },
           body: JSON.stringify({
             model: models.education,
+            venice_parameters: {
+              disable_thinking: true,
+            },
             messages: [
               { role: "system", content: clinicianPrompt },
               { role: "user", content: userContent },
