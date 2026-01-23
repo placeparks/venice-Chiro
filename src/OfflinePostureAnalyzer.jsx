@@ -1,14 +1,29 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
-// Posture analysis thresholds and constants
-const POSTURE_THRESHOLDS = {
-    HEAD_FORWARD_ANGLE: { good: 10, moderate: 20 },
-    SHOULDER_TILT: { good: 5, moderate: 10 },
-    HIP_ALIGNMENT: { good: 5, moderate: 10 },
-    SPINE_CURVATURE: { good: 15, moderate: 25 },
+// ============================================================================
+// POSTURE ANALYSIS THRESHOLDS
+// ============================================================================
+
+// Frontal View Thresholds (Symmetry Assessment)
+const FRONTAL_THRESHOLDS = {
+    HEAD_TILT: { good: 5, moderate: 10 },      // Left/right head lean
+    SHOULDER_LEVEL: { good: 3, moderate: 7 },   // Height difference
+    HIP_LEVEL: { good: 3, moderate: 7 },        // Height difference
+    SPINE_ALIGNMENT: { good: 5, moderate: 12 }, // Lateral shift
 };
 
-// MediaPipe Pose landmark indices
+// Lateral View Thresholds (Forward Posture Assessment)
+const LATERAL_THRESHOLDS = {
+    HEAD_FORWARD: { good: 10, moderate: 20 },     // Forward head posture
+    SHOULDER_ROUND: { good: 15, moderate: 25 },   // Kyphosis indicator
+    PELVIC_TILT: { good: 10, moderate: 18 },      // Anterior/posterior
+    SPINE_CURVE: { good: 12, moderate: 20 },      // Overall curvature
+};
+
+// ============================================================================
+// MEDIAPIPE LANDMARK INDICES
+// ============================================================================
+
 const LANDMARKS = {
     NOSE: 0,
     LEFT_EYE: 2,
@@ -45,14 +60,58 @@ const POSE_CONNECTIONS = [
     [LANDMARKS.RIGHT_KNEE, LANDMARKS.RIGHT_ANKLE],
 ];
 
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
 const getMidpoint = (p1, p2) => ({
     x: (p1.x + p2.x) / 2,
     y: (p1.y + p2.y) / 2,
     z: ((p1.z || 0) + (p2.z || 0)) / 2,
 });
 
-const calculateSlope = (p1, p2) => {
-    return Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+/**
+ * Fix 1: Horizontal Tilt
+ * Measures angle from horizontal (0° = perfectly level)
+ * Used for shoulder level and hip level measurements
+ */
+const horizontalTilt = (p1, p2) => {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    return Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+};
+
+/**
+ * Fix 2: Vertical Offset
+ * Measures deviation from vertical alignment
+ * Used for spine alignment and head position
+ */
+const verticalOffset = (topPoint, bottomPoint) => {
+    const dx = topPoint.x - bottomPoint.x;
+    const dy = Math.abs(topPoint.y - bottomPoint.y);
+    return Math.abs(Math.atan2(Math.abs(dx), dy) * (180 / Math.PI));
+};
+
+/**
+ * Fix 3: Auto-detect View Type
+ * Determines if image is frontal or lateral based on shoulder geometry
+ */
+const detectViewType = (landmarks) => {
+    const leftShoulder = landmarks[LANDMARKS.LEFT_SHOULDER];
+    const rightShoulder = landmarks[LANDMARKS.RIGHT_SHOULDER];
+
+    const shoulderDepthDiff = Math.abs(
+        (leftShoulder.z || 0) - (rightShoulder.z || 0)
+    );
+    const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+    const ratio = shoulderDepthDiff / (shoulderWidth + 0.001);
+
+    // Wide shoulders + similar depth = frontal view
+    // Narrow shoulders or big depth diff = lateral view
+    if (shoulderWidth > 0.15 && ratio < 0.5) {
+        return 'frontal';
+    }
+    return 'lateral';
 };
 
 const getStatus = (value, thresholds) => {
@@ -70,9 +129,109 @@ const getStatusEmoji = (status) => {
     }
 };
 
-const analyzePosture = (landmarks) => {
-    if (!landmarks || landmarks.length < 33) return null;
+// ============================================================================
+// FRONTAL VIEW ANALYSIS (Symmetry Assessment)
+// ============================================================================
 
+const analyzeFrontal = (landmarks) => {
+    const leftEar = landmarks[LANDMARKS.LEFT_EAR];
+    const rightEar = landmarks[LANDMARKS.RIGHT_EAR];
+    const leftShoulder = landmarks[LANDMARKS.LEFT_SHOULDER];
+    const rightShoulder = landmarks[LANDMARKS.RIGHT_SHOULDER];
+    const leftHip = landmarks[LANDMARKS.LEFT_HIP];
+    const rightHip = landmarks[LANDMARKS.RIGHT_HIP];
+    const nose = landmarks[LANDMARKS.NOSE];
+
+    const midShoulder = getMidpoint(leftShoulder, rightShoulder);
+    const midHip = getMidpoint(leftHip, rightHip);
+    const midEar = getMidpoint(leftEar, rightEar);
+
+    // Head tilt: deviation from vertical (ear midpoint to nose)
+    const headTilt = horizontalTilt(leftEar, rightEar);
+
+    // Shoulder level: deviation from horizontal
+    const shoulderLevel = horizontalTilt(leftShoulder, rightShoulder);
+
+    // Hip level: deviation from horizontal
+    const hipLevel = horizontalTilt(leftHip, rightHip);
+
+    // Spine alignment: lateral deviation from vertical
+    const spineAlignment = verticalOffset(midShoulder, midHip);
+
+    const metrics = {
+        headTilt: {
+            value: parseFloat(headTilt.toFixed(1)),
+            status: getStatus(headTilt, FRONTAL_THRESHOLDS.HEAD_TILT),
+            label: 'Head Tilt',
+            description: headTilt > FRONTAL_THRESHOLDS.HEAD_TILT.moderate
+                ? 'Significant head tilt detected - may indicate neck tension'
+                : headTilt > FRONTAL_THRESHOLDS.HEAD_TILT.good
+                    ? 'Slight head tilt noted'
+                    : 'Head is well centered',
+            recommendation: headTilt > FRONTAL_THRESHOLDS.HEAD_TILT.good
+                ? 'Neck stretches and posture awareness exercises'
+                : 'Maintain current head positioning',
+        },
+        shoulderLevel: {
+            value: parseFloat(shoulderLevel.toFixed(1)),
+            status: getStatus(shoulderLevel, FRONTAL_THRESHOLDS.SHOULDER_LEVEL),
+            label: 'Shoulder Level',
+            description: shoulderLevel > FRONTAL_THRESHOLDS.SHOULDER_LEVEL.moderate
+                ? 'Significant shoulder imbalance detected'
+                : shoulderLevel > FRONTAL_THRESHOLDS.SHOULDER_LEVEL.good
+                    ? 'Minor shoulder asymmetry'
+                    : 'Shoulders are well balanced',
+            recommendation: shoulderLevel > FRONTAL_THRESHOLDS.SHOULDER_LEVEL.good
+                ? 'Shoulder blade squeezes and leveling exercises'
+                : 'Continue regular stretching',
+        },
+        hipLevel: {
+            value: parseFloat(hipLevel.toFixed(1)),
+            status: getStatus(hipLevel, FRONTAL_THRESHOLDS.HIP_LEVEL),
+            label: 'Hip Level',
+            description: hipLevel > FRONTAL_THRESHOLDS.HIP_LEVEL.moderate
+                ? 'Hip imbalance may indicate pelvic tilt'
+                : hipLevel > FRONTAL_THRESHOLDS.HIP_LEVEL.good
+                    ? 'Slight hip asymmetry noted'
+                    : 'Hips are level and balanced',
+            recommendation: hipLevel > FRONTAL_THRESHOLDS.HIP_LEVEL.good
+                ? 'Hip flexor stretches and glute strengthening'
+                : 'Maintain hip mobility with stretching',
+        },
+        spineAlignment: {
+            value: parseFloat(spineAlignment.toFixed(1)),
+            status: getStatus(spineAlignment, FRONTAL_THRESHOLDS.SPINE_ALIGNMENT),
+            label: 'Spine Alignment',
+            description: spineAlignment > FRONTAL_THRESHOLDS.SPINE_ALIGNMENT.moderate
+                ? 'Lateral spinal deviation requires attention'
+                : spineAlignment > FRONTAL_THRESHOLDS.SPINE_ALIGNMENT.good
+                    ? 'Minor lateral spine shift detected'
+                    : 'Spine alignment is optimal',
+            recommendation: spineAlignment > FRONTAL_THRESHOLDS.SPINE_ALIGNMENT.good
+                ? 'Core strengthening and lateral stretches'
+                : 'Continue core maintenance exercises',
+        },
+    };
+
+    const scores = Object.values(metrics).map(m =>
+        m.status === 'good' ? 100 : m.status === 'moderate' ? 60 : 30
+    );
+    const overallScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+
+    return {
+        viewType: 'frontal',
+        metrics,
+        overallScore,
+        overallStatus: overallScore >= 80 ? 'good' : overallScore >= 50 ? 'moderate' : 'poor',
+        timestamp: Date.now(),
+    };
+};
+
+// ============================================================================
+// LATERAL VIEW ANALYSIS (Forward Posture Assessment)
+// ============================================================================
+
+const analyzeLateral = (landmarks) => {
     const leftEar = landmarks[LANDMARKS.LEFT_EAR];
     const rightEar = landmarks[LANDMARKS.RIGHT_EAR];
     const leftShoulder = landmarks[LANDMARKS.LEFT_SHOULDER];
@@ -84,65 +243,68 @@ const analyzePosture = (landmarks) => {
     const midHip = getMidpoint(leftHip, rightHip);
     const midEar = getMidpoint(leftEar, rightEar);
 
-    const headForwardAngle = Math.abs(
-        Math.atan2(midEar.y - midShoulder.y, midEar.x - midShoulder.x) * 180 / Math.PI - 90
-    );
-    const shoulderTilt = Math.abs(calculateSlope(leftShoulder, rightShoulder));
-    const hipAlignment = Math.abs(calculateSlope(leftHip, rightHip));
-    const spineAngle = Math.abs(
-        Math.atan2(midHip.y - midShoulder.y, midHip.x - midShoulder.x) * 180 / Math.PI - 90
-    );
+    // Head forward: how far ear is in front of shoulder (using vertical offset)
+    const headForward = verticalOffset(midEar, midShoulder);
+
+    // Shoulder round: forward deviation of shoulders relative to hips
+    const shoulderRound = verticalOffset(midShoulder, midHip);
+
+    // Pelvic tilt: hip alignment deviation
+    const pelvicTilt = horizontalTilt(leftHip, rightHip);
+
+    // Spine curve: overall curvature from shoulder to hip
+    const spineCurve = verticalOffset(midShoulder, midHip);
 
     const metrics = {
         headForward: {
-            value: parseFloat(headForwardAngle.toFixed(1)),
-            status: getStatus(headForwardAngle, POSTURE_THRESHOLDS.HEAD_FORWARD_ANGLE),
-            label: 'Head Position',
-            description: headForwardAngle > POSTURE_THRESHOLDS.HEAD_FORWARD_ANGLE.moderate
+            value: parseFloat(headForward.toFixed(1)),
+            status: getStatus(headForward, LATERAL_THRESHOLDS.HEAD_FORWARD),
+            label: 'Head Forward',
+            description: headForward > LATERAL_THRESHOLDS.HEAD_FORWARD.moderate
                 ? 'Forward head posture detected - may cause neck strain'
-                : headForwardAngle > POSTURE_THRESHOLDS.HEAD_FORWARD_ANGLE.good
-                    ? 'Slight forward head tilt - monitor closely'
+                : headForward > LATERAL_THRESHOLDS.HEAD_FORWARD.good
+                    ? 'Slight forward head position'
                     : 'Excellent head alignment',
-            recommendation: headForwardAngle > POSTURE_THRESHOLDS.HEAD_FORWARD_ANGLE.good
+            recommendation: headForward > LATERAL_THRESHOLDS.HEAD_FORWARD.good
                 ? 'Chin tuck exercises, 10 reps × 3 sets daily'
                 : 'Maintain current positioning',
         },
-        shoulderTilt: {
-            value: parseFloat(shoulderTilt.toFixed(1)),
-            status: getStatus(shoulderTilt, POSTURE_THRESHOLDS.SHOULDER_TILT),
-            label: 'Shoulder Level',
-            description: shoulderTilt > POSTURE_THRESHOLDS.SHOULDER_TILT.moderate
-                ? 'Significant shoulder imbalance detected'
-                : shoulderTilt > POSTURE_THRESHOLDS.SHOULDER_TILT.good
-                    ? 'Minor shoulder asymmetry'
-                    : 'Shoulders are well balanced',
-            recommendation: shoulderTilt > POSTURE_THRESHOLDS.SHOULDER_TILT.good
-                ? 'Shoulder blade squeezes and leveling exercises'
-                : 'Continue regular stretching',
+        shoulderRound: {
+            value: parseFloat(shoulderRound.toFixed(1)),
+            status: getStatus(shoulderRound, LATERAL_THRESHOLDS.SHOULDER_ROUND),
+            label: 'Shoulder Round',
+            description: shoulderRound > LATERAL_THRESHOLDS.SHOULDER_ROUND.moderate
+                ? 'Rounded shoulders detected - kyphosis indicator'
+                : shoulderRound > LATERAL_THRESHOLDS.SHOULDER_ROUND.good
+                    ? 'Slight shoulder rounding'
+                    : 'Good shoulder posture',
+            recommendation: shoulderRound > LATERAL_THRESHOLDS.SHOULDER_ROUND.good
+                ? 'Chest stretches and upper back strengthening'
+                : 'Continue postural exercises',
         },
-        hipAlignment: {
-            value: parseFloat(hipAlignment.toFixed(1)),
-            status: getStatus(hipAlignment, POSTURE_THRESHOLDS.HIP_ALIGNMENT),
-            label: 'Hip Alignment',
-            description: hipAlignment > POSTURE_THRESHOLDS.HIP_ALIGNMENT.moderate
-                ? 'Hip imbalance may indicate pelvic tilt'
-                : hipAlignment > POSTURE_THRESHOLDS.HIP_ALIGNMENT.good
-                    ? 'Slight hip asymmetry noted'
-                    : 'Hips are level and balanced',
-            recommendation: hipAlignment > POSTURE_THRESHOLDS.HIP_ALIGNMENT.good
-                ? 'Hip flexor stretches and glute strengthening'
-                : 'Maintain hip mobility with stretching',
+        pelvicTilt: {
+            value: parseFloat(pelvicTilt.toFixed(1)),
+            status: getStatus(pelvicTilt, LATERAL_THRESHOLDS.PELVIC_TILT),
+            label: 'Pelvic Tilt',
+            description: pelvicTilt > LATERAL_THRESHOLDS.PELVIC_TILT.moderate
+                ? 'Significant pelvic tilt - may cause lower back issues'
+                : pelvicTilt > LATERAL_THRESHOLDS.PELVIC_TILT.good
+                    ? 'Minor pelvic tilt noted'
+                    : 'Pelvis is well aligned',
+            recommendation: pelvicTilt > LATERAL_THRESHOLDS.PELVIC_TILT.good
+                ? 'Hip flexor stretches and core stabilization'
+                : 'Maintain pelvic mobility',
         },
-        spineCurvature: {
-            value: parseFloat(spineAngle.toFixed(1)),
-            status: getStatus(spineAngle, POSTURE_THRESHOLDS.SPINE_CURVATURE),
-            label: 'Spine Alignment',
-            description: spineAngle > POSTURE_THRESHOLDS.SPINE_CURVATURE.moderate
-                ? 'Spinal deviation requires attention'
-                : spineAngle > POSTURE_THRESHOLDS.SPINE_CURVATURE.good
-                    ? 'Minor spinal curve detected'
-                    : 'Spine alignment is optimal',
-            recommendation: spineAngle > POSTURE_THRESHOLDS.SPINE_CURVATURE.good
+        spineCurve: {
+            value: parseFloat(spineCurve.toFixed(1)),
+            status: getStatus(spineCurve, LATERAL_THRESHOLDS.SPINE_CURVE),
+            label: 'Spine Curve',
+            description: spineCurve > LATERAL_THRESHOLDS.SPINE_CURVE.moderate
+                ? 'Excessive spinal curvature detected'
+                : spineCurve > LATERAL_THRESHOLDS.SPINE_CURVE.good
+                    ? 'Minor spinal curve noted'
+                    : 'Healthy spinal curvature',
+            recommendation: spineCurve > LATERAL_THRESHOLDS.SPINE_CURVE.good
                 ? 'Core strengthening - focus on transverse abdominis'
                 : 'Continue core maintenance exercises',
         },
@@ -154,6 +316,7 @@ const analyzePosture = (landmarks) => {
     const overallScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 
     return {
+        viewType: 'lateral',
         metrics,
         overallScore,
         overallStatus: overallScore >= 80 ? 'good' : overallScore >= 50 ? 'moderate' : 'poor',
@@ -161,15 +324,39 @@ const analyzePosture = (landmarks) => {
     };
 };
 
+// ============================================================================
+// MAIN ANALYSIS FUNCTION
+// ============================================================================
+
+const analyzePosture = (landmarks) => {
+    if (!landmarks || landmarks.length < 33) return null;
+
+    const viewType = detectViewType(landmarks);
+
+    if (viewType === 'frontal') {
+        return analyzeFrontal(landmarks);
+    } else {
+        return analyzeLateral(landmarks);
+    }
+};
+
+// ============================================================================
+// SOAP NOTE GENERATOR
+// ============================================================================
+
 const generateOfflineSOAPNote = (analysis) => {
     if (!analysis) return null;
 
-    const { metrics, overallScore } = analysis;
+    const { metrics, overallScore, viewType } = analysis;
     const date = new Date().toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
     });
+
+    const viewDescription = viewType === 'frontal'
+        ? 'Frontal View - Symmetry Assessment'
+        : 'Lateral View - Forward Posture Assessment';
 
     const findings = Object.values(metrics)
         .filter(m => m.status !== 'good')
@@ -187,19 +374,17 @@ Patient presents for posture assessment.
 
 ### OBJECTIVE
 **POSTURE ANALYSIS (AI-Assisted - Offline MediaPipe)**
-Overall Posture Score: ${overallScore}/100
+**View Type:** ${viewDescription}
+**Overall Posture Score:** ${overallScore}/100
 
 **Measurements:**
-- Head Forward Angle: ${metrics.headForward.value}° (${metrics.headForward.status})
-- Shoulder Tilt: ${metrics.shoulderTilt.value}° (${metrics.shoulderTilt.status})
-- Hip Alignment: ${metrics.hipAlignment.value}° (${metrics.hipAlignment.status})
-- Spine Deviation: ${metrics.spineCurvature.value}° (${metrics.spineCurvature.status})
+${Object.values(metrics).map(m => `- ${m.label}: ${m.value}° (${m.status})`).join('\n')}
 
 ${findings.length > 0 ? `**Areas of Concern:**\n${findings.join('\n')}` : ''}
 ${goodFindings.length > 0 ? `\n**Within Normal Limits:** ${goodFindings.join(', ')}` : ''}
 
 ### ASSESSMENT
-Posture assessment reveals ${overallScore >= 80 ? 'generally good alignment with minor areas for improvement' :
+Posture assessment (${viewType} view) reveals ${overallScore >= 80 ? 'generally good alignment with minor areas for improvement' :
             overallScore >= 50 ? 'moderate postural deviations requiring attention' :
                 'significant postural imbalances requiring intervention'
         }.
@@ -211,7 +396,10 @@ ${overallScore < 80 ? `${Object.values(metrics).length + 2}. Follow-up posture a
 `;
 };
 
-// Draw skeleton on canvas with color-coded status
+// ============================================================================
+// SKELETON DRAWING
+// ============================================================================
+
 const drawSkeleton = (ctx, landmarks, analysis, width, height) => {
     if (!landmarks || landmarks.length < 33) return;
 
@@ -258,7 +446,7 @@ const drawSkeleton = (ctx, landmarks, analysis, width, height) => {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Spine line
+        // Spine line (color-coded by status)
         ctx.beginPath();
         ctx.strokeStyle = analysis.overallStatus === 'good' ? '#10B981' :
             analysis.overallStatus === 'moderate' ? '#F59E0B' : '#EF4444';
@@ -268,6 +456,10 @@ const drawSkeleton = (ctx, landmarks, analysis, width, height) => {
         ctx.stroke();
     }
 };
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
 const OfflinePostureAnalyzer = ({ onAnalysisComplete }) => {
     const videoRef = useRef(null);
@@ -346,7 +538,6 @@ const OfflinePostureAnalyzer = ({ onAnalysisComplete }) => {
                     navigator.serviceWorker.controller.postMessage({ type: 'CACHE_MEDIAPIPE' });
                 }
             } catch (err) {
-                console.error('Failed to load MediaPipe:', err);
                 setError('Failed to load pose detection. Check your internet connection and refresh.');
                 setIsLoading(false);
             }
@@ -420,7 +611,6 @@ const OfflinePostureAnalyzer = ({ onAnalysisComplete }) => {
             try {
                 await poseRef.current.send({ image: img });
             } catch (err) {
-                console.error('Pose detection error:', err);
                 setError('Failed to analyze image. Try a clearer photo.');
                 setIsProcessing(false);
             }
@@ -440,7 +630,6 @@ const OfflinePostureAnalyzer = ({ onAnalysisComplete }) => {
             }
             setMode('camera');
         } catch (err) {
-            console.error('Camera access error:', err);
             setError('Unable to access camera. Please check permissions.');
         }
     };
@@ -465,7 +654,6 @@ const OfflinePostureAnalyzer = ({ onAnalysisComplete }) => {
         try {
             await poseRef.current.send({ image: videoRef.current });
         } catch (err) {
-            console.error('Pose detection error:', err);
             setError('Failed to analyze. Please try again.');
             setIsProcessing(false);
         }
@@ -559,8 +747,8 @@ const OfflinePostureAnalyzer = ({ onAnalysisComplete }) => {
                         <button
                             onClick={() => { stopCamera(); fileInputRef.current?.click(); }}
                             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${mode === 'upload'
-                                    ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
-                                    : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                                ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
+                                : 'bg-white/5 text-gray-400 hover:bg-white/10'
                                 }`}
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -571,8 +759,8 @@ const OfflinePostureAnalyzer = ({ onAnalysisComplete }) => {
                         <button
                             onClick={mode === 'camera' ? captureFromCamera : startCamera}
                             className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${mode === 'camera'
-                                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white'
-                                    : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white'
+                                : 'bg-white/5 text-gray-400 hover:bg-white/10'
                                 }`}
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -665,11 +853,15 @@ const OfflinePostureAnalyzer = ({ onAnalysisComplete }) => {
                                 </div>
                                 <p className="text-gray-400">Posture Score</p>
                                 <p className={`text-sm font-medium mt-1 ${analysis.overallStatus === 'good' ? 'text-emerald-400' :
-                                        analysis.overallStatus === 'moderate' ? 'text-amber-400' : 'text-red-400'
+                                    analysis.overallStatus === 'moderate' ? 'text-amber-400' : 'text-red-400'
                                     }`}>
                                     {analysis.overallStatus === 'good' ? 'Excellent Alignment' :
                                         analysis.overallStatus === 'moderate' ? 'Needs Attention' : 'Significant Deviation'}
                                 </p>
+                                {/* View Type Badge */}
+                                <span className="inline-block mt-2 px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-medium">
+                                    {analysis.viewType === 'frontal' ? '👤 Frontal View' : '👤 Lateral View'}
+                                </span>
                             </div>
 
                             {/* Metrics Grid */}
@@ -758,4 +950,4 @@ const OfflinePostureAnalyzer = ({ onAnalysisComplete }) => {
 };
 
 export default OfflinePostureAnalyzer;
-export { analyzePosture, generateOfflineSOAPNote, POSTURE_THRESHOLDS, LANDMARKS };
+export { analyzePosture, generateOfflineSOAPNote, FRONTAL_THRESHOLDS, LATERAL_THRESHOLDS, LANDMARKS };
