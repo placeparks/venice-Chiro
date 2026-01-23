@@ -74,11 +74,15 @@ const getMidpoint = (p1, p2) => ({
  * Fix 1: Horizontal Tilt
  * Measures angle from horizontal (0° = perfectly level)
  * Used for shoulder level and hip level measurements
+ * Normalizes to 0-90° range (tilt from horizontal)
  */
 const horizontalTilt = (p1, p2) => {
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
-    return Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+    let angle = Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
+    // Normalize to 0-90° range (angle from horizontal line)
+    if (angle > 90) angle = 180 - angle;
+    return angle;
 };
 
 /**
