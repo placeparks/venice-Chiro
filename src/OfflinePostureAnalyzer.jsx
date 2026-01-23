@@ -106,9 +106,9 @@ const detectViewType = (landmarks) => {
     const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
     const ratio = shoulderDepthDiff / (shoulderWidth + 0.001);
 
-    // Wide shoulders + similar depth = frontal view
-    // Narrow shoulders or big depth diff = lateral view
-    if (shoulderWidth > 0.15 && ratio < 0.5) {
+    // Wide shoulders = frontal view (relaxed threshold)
+    // Narrow shoulders = lateral view
+    if (shoulderWidth > 0.08) {
         return 'frontal';
     }
     return 'lateral';
@@ -249,8 +249,11 @@ const analyzeLateral = (landmarks) => {
     // Shoulder round: forward deviation of shoulders relative to hips
     const shoulderRound = verticalOffset(midShoulder, midHip);
 
-    // Pelvic tilt: hip alignment deviation
-    const pelvicTilt = horizontalTilt(leftHip, rightHip);
+    // Pelvic tilt: anterior/posterior deviation (use vertical offset from hip to knee)
+    const leftKnee = landmarks[LANDMARKS.LEFT_KNEE];
+    const rightKnee = landmarks[LANDMARKS.RIGHT_KNEE];
+    const midKnee = getMidpoint(leftKnee, rightKnee);
+    const pelvicTilt = verticalOffset(midHip, midKnee);
 
     // Spine curve: overall curvature from shoulder to hip
     const spineCurve = verticalOffset(midShoulder, midHip);
