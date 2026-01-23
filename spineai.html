@@ -113,5 +113,33 @@
     <div id="root"></div>
     
     <script defer src="app.js"></script>
+    
+    <!-- Service Worker Registration for Offline Support -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SpineAI ServiceWorker registered:', registration.scope);
+              
+              // Trigger MediaPipe caching after registration
+              if (registration.active) {
+                registration.active.postMessage({ type: 'CACHE_MEDIAPIPE' });
+              }
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'activated') {
+                    newWorker.postMessage({ type: 'CACHE_MEDIAPIPE' });
+                  }
+                });
+              });
+            })
+            .catch((error) => {
+              console.log('ServiceWorker registration failed:', error);
+            });
+        });
+      }
+    </script>
 </body>
 </html>

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import OfflinePostureAnalyzer from "./OfflinePostureAnalyzer";
+import useOfflineDetection from "./useOfflineDetection";
 
 // Configuration - optional build-time Venice API key
 const VENICE_API_KEY = process.env.VENICE_API_KEY || "YOUR_VENICE_API_KEY_HERE";
@@ -140,6 +142,12 @@ const BookIcon = () => (
   </svg>
 );
 
+const WifiOffIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth="1.5">
+    <path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 function getApiKey() {
   return window.VENICE_KEY || VENICE_API_KEY;
 }
@@ -156,6 +164,7 @@ function App() {
   const [activeTab, setActiveTab] = useState("posture");
   const [apiKeySet, setApiKeySet] = useState(VENICE_API_KEY !== "YOUR_VENICE_API_KEY_HERE");
   const [tempApiKey, setTempApiKey] = useState("");
+  const { isOnline, isOffline } = useOfflineDetection();
 
   if (!apiKeySet) {
     return (
@@ -211,44 +220,54 @@ function App() {
               <h1 className="text-2xl font-serif text-white">SpineAI</h1>
               <p className="text-xs text-gray-500">Chiropractic AI Assistant</p>
             </div>
+            {isOffline && (
+              <span className="px-2 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs font-medium flex items-center gap-1">
+                <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                Offline
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 bg-white/5 rounded-full p-1 w-full sm:w-auto overflow-x-auto">
             <button
               onClick={() => setActiveTab("posture")}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
-                activeTab === "posture" ? "bg-teal-500/20 text-teal-400" : "text-gray-400 hover:text-white"
-              }`}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${activeTab === "posture" ? "bg-teal-500/20 text-teal-400" : "text-gray-400 hover:text-white"
+                }`}
             >
               <CameraIcon />
               Posture Analysis
             </button>
             <button
               onClick={() => setActiveTab("soap")}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
-                activeTab === "soap" ? "bg-orange-500/20 text-orange-400" : "text-gray-400 hover:text-white"
-              }`}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${activeTab === "soap" ? "bg-orange-500/20 text-orange-400" : "text-gray-400 hover:text-white"
+                }`}
             >
               <MicIcon recording={false} />
               SOAP Notes
             </button>
             <button
               onClick={() => setActiveTab("chat")}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
-                activeTab === "chat" ? "bg-blue-500/20 text-blue-400" : "text-gray-400 hover:text-white"
-              }`}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${activeTab === "chat" ? "bg-blue-500/20 text-blue-400" : "text-gray-400 hover:text-white"
+                }`}
             >
               <ChatIcon />
               Chiro Chat
             </button>
             <button
               onClick={() => setActiveTab("education")}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
-                activeTab === "education" ? "bg-purple-500/20 text-purple-400" : "text-gray-400 hover:text-white"
-              }`}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${activeTab === "education" ? "bg-purple-500/20 text-purple-400" : "text-gray-400 hover:text-white"
+                }`}
             >
               <BookIcon />
               Care Pack
+            </button>
+            <button
+              onClick={() => setActiveTab("offline")}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${activeTab === "offline" ? "bg-emerald-500/20 text-emerald-400" : "text-gray-400 hover:text-white"
+                }`}
+            >
+              <WifiOffIcon />
+              <span className="hidden sm:inline">Offline</span> Analysis
             </button>
           </div>
         </div>
@@ -261,6 +280,8 @@ function App() {
           <SOAPNotes />
         ) : activeTab === "education" ? (
           <CarePack />
+        ) : activeTab === "offline" ? (
+          <OfflinePostureAnalysis />
         ) : (
           <ChiroChat />
         )}
@@ -351,16 +372,15 @@ function PostureAnalysis() {
 
           <div className="mb-6">
             <label className="text-sm text-gray-400 mb-2 block">Select View</label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {views.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setView(item.id)}
-                  className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                    view === item.id
-                      ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
-                      : "bg-white/5 text-gray-400 border border-transparent hover:bg-white/10"
-                  }`}
+                  className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${view === item.id
+                    ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
+                    : "bg-white/5 text-gray-400 border border-transparent hover:bg-white/10"
+                    }`}
                 >
                   <span className="text-lg">{item.icon}</span>
                   <span className="block text-xs mt-1">{item.label}</span>
@@ -391,9 +411,8 @@ function PostureAnalysis() {
           <button
             onClick={handleAnalyze}
             disabled={!image || analyzing}
-            className={`w-full mt-6 py-4 rounded-xl font-medium text-lg transition-all ${
-              !image || analyzing ? "bg-gray-700 text-gray-400 cursor-not-allowed" : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:opacity-90"
-            }`}
+            className={`w-full mt-6 py-4 rounded-xl font-medium text-lg transition-all ${!image || analyzing ? "bg-gray-700 text-gray-400 cursor-not-allowed" : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:opacity-90"
+              }`}
           >
             {analyzing ? (
               <span className="flex items-center justify-center gap-2">
@@ -605,9 +624,8 @@ function SOAPNotes() {
             <div className="flex items-center gap-4">
               <button
                 onClick={recording ? stopRecording : startRecording}
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
-                  recording ? "bg-red-500 pulse-record text-white" : "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30"
-                }`}
+                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${recording ? "bg-red-500 pulse-record text-white" : "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30"
+                  }`}
               >
                 <MicIcon recording={recording} />
               </button>
@@ -653,11 +671,10 @@ function SOAPNotes() {
           <button
             onClick={generateSOAP}
             disabled={(!transcription && !manualNotes.trim()) || generating}
-            className={`w-full py-4 rounded-xl font-medium text-lg transition-all ${
-              (!transcription && !manualNotes.trim()) || generating
-                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:opacity-90"
-            }`}
+            className={`w-full py-4 rounded-xl font-medium text-lg transition-all ${(!transcription && !manualNotes.trim()) || generating
+              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+              : "bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:opacity-90"
+              }`}
           >
             {generating ? (
               <span className="flex items-center justify-center gap-2">
@@ -798,6 +815,33 @@ function ResultsRenderer({ content }) {
           </p>
         );
       })}
+    </div>
+  );
+}
+
+function OfflinePostureAnalysis() {
+  const handleAnalysisComplete = (analysis) => {
+    console.log('Offline analysis complete:', analysis);
+    // Store for potential use in SOAP notes
+    if (analysis) {
+      window.lastOfflineAnalysis = analysis;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-serif text-white">Offline Posture Analysis</h2>
+          <p className="text-gray-400 text-sm mt-1">AI-powered analysis that works without internet</p>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+          <span className="w-2 h-2 bg-emerald-400 rounded-full"></span>
+          <span className="text-emerald-400 text-sm font-medium">Local Processing</span>
+        </div>
+      </div>
+
+      <OfflinePostureAnalyzer onAnalysisComplete={handleAnalysisComplete} />
     </div>
   );
 }
@@ -949,11 +993,10 @@ Use professional tone and avoid definitive diagnosis.`;
           <button
             onClick={generateCarePack}
             disabled={!notes.trim() || generating}
-            className={`w-full mt-6 py-4 rounded-xl font-medium text-lg transition-all ${
-              !notes.trim() || generating
-                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:opacity-90"
-            }`}
+            className={`w-full mt-6 py-4 rounded-xl font-medium text-lg transition-all ${!notes.trim() || generating
+              ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+              : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:opacity-90"
+              }`}
           >
             {generating ? "Generating..." : "Generate Care Pack"}
           </button>
@@ -1087,11 +1130,10 @@ If the user asks for patient education, use plain language.`;
           {messages.map((message, index) => (
             <div
               key={`${message.role}-${index}`}
-              className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                message.role === "user"
-                  ? "bg-teal-200 text-slate-900 ml-auto max-w-[85%]"
-                  : "bg-white/5 text-gray-200 max-w-[85%]"
-              }`}
+              className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === "user"
+                ? "bg-teal-200 text-slate-900 ml-auto max-w-[85%]"
+                : "bg-white/5 text-gray-200 max-w-[85%]"
+                }`}
             >
               <ResultsRenderer content={message.content} />
             </div>
@@ -1121,9 +1163,8 @@ If the user asks for patient education, use plain language.`;
           <button
             onClick={sendMessage}
             disabled={!input.trim() || sending}
-            className={`px-5 py-3 rounded-xl font-medium transition-all ${
-              !input.trim() || sending ? "bg-gray-700 text-gray-400 cursor-not-allowed" : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:opacity-90"
-            }`}
+            className={`px-5 py-3 rounded-xl font-medium transition-all ${!input.trim() || sending ? "bg-gray-700 text-gray-400 cursor-not-allowed" : "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:opacity-90"
+              }`}
           >
             Send
           </button>
