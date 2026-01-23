@@ -108,7 +108,7 @@ const detectViewType = (landmarks) => {
 
     // Wide shoulders = frontal view (relaxed threshold)
     // Narrow shoulders = lateral view
-    if (shoulderWidth > 0.08) {
+    if (shoulderWidth > 0.05) {
         return 'frontal';
     }
     return 'lateral';
